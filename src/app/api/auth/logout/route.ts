@@ -11,7 +11,7 @@ export async function POST() {
         where: { token: sessionToken },
       });
     }
-s
+
     (await cookies()).delete("session");
 
     return NextResponse.json({ success: true });

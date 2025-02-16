@@ -47,7 +47,6 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>();
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-
   const fetchData = async () => {
     setLoading(true);
     try {

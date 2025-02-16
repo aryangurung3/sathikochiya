@@ -3,12 +3,13 @@ import prisma from "@/lib/prisma";
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { customerName, items } = await request.json();
+    const id = (await params).id;
     const updatedSale = await prisma.sale.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         customerName,
         total: items.reduce(
@@ -50,10 +51,10 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params?.id;
+    const id = (await params).id;
 
     if (!id) {
       return NextResponse.json(
