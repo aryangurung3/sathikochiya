@@ -30,7 +30,7 @@ export function Sidebar() {
             className="w-full justify-start mb-2"
           >
             <Coffee className="mr-2 h-4 w-4" />
-            Menu
+            Menu Items
           </Button>
         </Link>
         <Link href="/">
