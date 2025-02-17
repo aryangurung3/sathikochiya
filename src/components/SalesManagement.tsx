@@ -52,10 +52,12 @@ type SaleItem = {
 
 type Sale = {
   id: string;
-  customerName: string;
+  customerName: string | null;
+  tableNumber: string;
   items: SaleItem[];
   total: number;
   createdAt: Date | string;
+  isPaid: boolean;
 };
 
 export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
@@ -63,6 +65,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [sales, setSales] = useState<Sale[]>(initialSales);
   const [customerName, setCustomerName] = useState("");
+  const [tableNumber, setTableNumber] = useState("");
   const [currentSaleItems, setCurrentSaleItems] = useState<SaleItem[]>([]);
   const [selectedMenuItem, setSelectedMenuItem] = useState<string>("");
   const [quantity, setQuantity] = useState("");
@@ -71,12 +74,13 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterPaid, setFilterPaid] = useState<string>("all"); // Updated line
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     fetchMenuItems();
-  });
+  }, []);
 
   const fetchMenuItems = async () => {
     try {
@@ -141,7 +145,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   };
 
   const addSale = async () => {
-    if (customerName && currentSaleItems.length > 0 && !isLoading) {
+    if (tableNumber && currentSaleItems.length > 0 && !isLoading) {
       setIsLoading(true);
       try {
         const response = await fetch("/api/sales", {
@@ -149,7 +153,9 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             customerName,
+            tableNumber,
             items: currentSaleItems,
+            isPaid: false,
           }),
         });
 
@@ -160,10 +166,11 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
         const newSale = await response.json();
         setSales([newSale, ...sales]);
         setCustomerName("");
+        setTableNumber("");
         setCurrentSaleItems([]);
         toast({
           title: "Sale added",
-          description: `A new sale for ${newSale.customerName} has been added.`,
+          description: `A new sale for table ${newSale.tableNumber} has been added.`,
         });
         router.refresh();
       } catch (error) {
@@ -176,19 +183,26 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
       } finally {
         setIsLoading(false);
       }
+    } else {
+      toast({
+        title: "Error",
+        description: "Table number and at least one item are required.",
+        variant: "destructive",
+      });
     }
   };
 
   const startEditSale = (sale: Sale) => {
     setEditingSale(sale);
-    setCustomerName(sale.customerName);
+    setCustomerName(sale.customerName || "");
+    setTableNumber(sale.tableNumber);
     setCurrentSaleItems(sale.items);
   };
 
   const updateSale = async () => {
     if (
       editingSale &&
-      customerName &&
+      tableNumber &&
       currentSaleItems.length > 0 &&
       !isLoading
     ) {
@@ -199,6 +213,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             customerName,
+            tableNumber,
             items: currentSaleItems,
           }),
         });
@@ -213,10 +228,11 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
         );
         setEditingSale(null);
         setCustomerName("");
+        setTableNumber("");
         setCurrentSaleItems([]);
         toast({
           title: "Sale updated",
-          description: `The sale for ${updatedSale.customerName} has been updated.`,
+          description: `The sale for table ${updatedSale.tableNumber} has been updated.`,
         });
         router.refresh();
       } catch (error) {
@@ -265,11 +281,55 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
     }
   };
 
+  const togglePaidStatus = async (sale: Sale) => {
+    try {
+      const response = await fetch(`/api/sales/${sale.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPaid: !sale.isPaid }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update paid status");
+      }
+
+      const updatedSale = await response.json();
+      setSales(
+        sales.map((s) =>
+          s.id === updatedSale.id ? { ...s, ...updatedSale } : s
+        )
+      );
+      toast({
+        title: "Status updated",
+        description: `Sale for table ${updatedSale.tableNumber} is now ${
+          updatedSale.isPaid ? "paid" : "unpaid"
+        }.`,
+      });
+    } catch (error) {
+      console.error("Error updating paid status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update paid status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredSales = useMemo(() => {
-    return sales.filter((sale) =>
-      sale.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [sales, searchTerm]);
+    return sales.filter((sale) => {
+      const matchesSearch =
+        (sale.customerName?.toLowerCase() ?? "").includes(
+          searchTerm.toLowerCase()
+        ) || sale.tableNumber.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesFilter =
+        filterPaid === "all" ||
+        (filterPaid === "paid" && sale.isPaid) ||
+        (filterPaid === "unpaid" && !sale.isPaid);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [sales, searchTerm, filterPaid]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -284,10 +344,19 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
         <h2 className="text-xl font-semibold mb-4">
           {editingSale ? "Edit Sale" : "Add New Sale"}
         </h2>
-        {/* ... (rest of the form code remains unchanged) ... */}
         <div className="space-y-4">
           <div>
-            <Label htmlFor="customerName">Customer Name</Label>
+            <Label htmlFor="tableNumber">Table Number</Label>
+            <Input
+              id="tableNumber"
+              value={tableNumber}
+              onChange={(e) => setTableNumber(e.target.value)}
+              placeholder="Enter table number"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="customerName">Customer Name (Optional)</Label>
             <Input
               id="customerName"
               value={customerName}
@@ -377,6 +446,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
               onClick={() => {
                 setEditingSale(null);
                 setCustomerName("");
+                setTableNumber("");
                 setCurrentSaleItems([]);
               }}
               className="w-full"
@@ -394,28 +464,48 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           <div className="relative w-64">
             <Input
               type="text"
-              placeholder="Search by customer name"
+              placeholder="Search by customer or table"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
+          <Select
+            value={filterPaid}
+            onValueChange={(value: string) =>
+              setFilterPaid(value as "all" | "paid" | "unpaid")
+            }
+          >
+            {" "}
+            {/* Updated line */}
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by payment status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Table</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {currentItems.map((sale) => (
               <TableRow key={sale.id}>
-                <TableCell>{sale.customerName}</TableCell>
+                <TableCell>{sale.tableNumber}</TableCell>
+                <TableCell>{sale.customerName || "N/A"}</TableCell>
                 <TableCell>
                   {sale.items.map((item, index) => (
                     <div key={index}>
@@ -428,7 +518,26 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
                   {new Date(sale.createdAt).toLocaleString()}
                 </TableCell>
                 <TableCell>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      sale.isPaid
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {sale.isPaid ? "Paid" : "Unpaid"}
+                  </span>
+                </TableCell>
+                <TableCell>
                   <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => togglePaidStatus(sale)}
+                      className={sale.isPaid ? "bg-green-100" : "bg-red-100"}
+                    >
+                      {sale.isPaid ? "Mark Unpaid" : "Mark Paid"}
+                    </Button>
                     <Button variant="ghost" onClick={() => startEditSale(sale)}>
                       <Edit className="h-4 w-4" />
                     </Button>

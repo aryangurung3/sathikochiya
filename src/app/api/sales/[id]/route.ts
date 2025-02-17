@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function PUT(
@@ -6,12 +6,13 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { customerName, items } = await request.json();
+    const { customerName, tableNumber, items } = await request.json();
     const id = (await params).id;
     const updatedSale = await prisma.sale.update({
       where: { id: id },
       data: {
         customerName,
+        tableNumber,
         total: items.reduce(
           (
             sum: number,
@@ -44,6 +45,27 @@ export async function PUT(
     console.error("Failed to update sale:", error);
     return NextResponse.json(
       { error: "Failed to update sale" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { isPaid } = await request.json();
+    const id = (await params).id;
+    const updatedSale = await prisma.sale.update({
+      where: { id: id },
+      data: { isPaid },
+    });
+    return NextResponse.json(updatedSale);
+  } catch (error) {
+    console.error("Failed to update sale status:", error);
+    return NextResponse.json(
+      { error: "Failed to update sale status" },
       { status: 500 }
     );
   }

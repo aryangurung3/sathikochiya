@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 type Sale = {
   id: string;
   customerName: string;
+  tableNumber: string; // Added tableNumber field
   total: number;
   createdAt: string;
 };
@@ -47,6 +48,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>();
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -85,7 +87,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-  }, [dateRange]);
+  }, [dateRange]); //Fixed useEffect dependency
 
   const totalSales = sales.length;
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
@@ -121,8 +123,10 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const filteredSales = sales
-    .filter((sale) =>
-      sale.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+    .filter(
+      (sale) =>
+        sale.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sale.tableNumber.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .slice(0, 10);
 
@@ -201,7 +205,7 @@ export default function DashboardPage() {
               <Search className="w-4 h-4 text-gray-500" />
               <Input
                 type="text"
-                placeholder="Search by customer name"
+                placeholder="Search by customer name or table number"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -210,6 +214,7 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Table</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Total</TableHead>
@@ -219,6 +224,9 @@ export default function DashboardPage() {
                   {loading
                     ? Array.from({ length: 10 }).map((_, index) => (
                         <TableRow key={index}>
+                          <TableCell>
+                            <Skeleton className="h-6 w-20" />
+                          </TableCell>
                           <TableCell>
                             <Skeleton className="h-6 w-40" />
                           </TableCell>
@@ -232,6 +240,7 @@ export default function DashboardPage() {
                       ))
                     : filteredSales.map((sale) => (
                         <TableRow key={sale.id}>
+                          <TableCell>{sale.tableNumber}</TableCell>
                           <TableCell>{sale.customerName}</TableCell>
                           <TableCell>
                             {new Date(sale.createdAt).toLocaleDateString()}

@@ -30,8 +30,10 @@ model Session {
 
 model Sale {
   id           String     @id @default(cuid())
-  customerName String
+  customerName String?
+  tableNumber  String
   total        Float
+  isPaid       Boolean    @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   items        SaleItem[]
