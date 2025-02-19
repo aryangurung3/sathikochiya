@@ -29,7 +29,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -74,12 +73,12 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterPaid, setFilterPaid] = useState<string>("all"); // Updated line
+  const [filterPaid, setFilterPaid] = useState<string>("all");
   const { toast } = useToast();
-  const router = useRouter();
 
   useEffect(() => {
     fetchMenuItems();
+    fetchSales();
   }, []);
 
   const fetchMenuItems = async () => {
@@ -95,6 +94,24 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
       toast({
         title: "Error",
         description: "Failed to fetch menu items. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchSales = async () => {
+    try {
+      const response = await fetch("/api/sales");
+      if (!response.ok) {
+        throw new Error("Failed to fetch sales");
+      }
+      const data = await response.json();
+      setSales(data);
+    } catch (error) {
+      console.error("Error fetching sales:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch sales. Please try again.",
         variant: "destructive",
       });
     }
@@ -172,7 +189,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           title: "Sale added",
           description: `A new sale for table ${newSale.tableNumber} has been added.`,
         });
-        router.refresh();
+        fetchSales();
       } catch (error) {
         console.error("Error adding sale:", error);
         toast({
@@ -234,7 +251,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           title: "Sale updated",
           description: `The sale for table ${updatedSale.tableNumber} has been updated.`,
         });
-        router.refresh();
+        fetchSales();
       } catch (error) {
         console.error("Error updating sale:", error);
         toast({
@@ -266,7 +283,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           title: "Sale deleted",
           description: "The sale has been successfully deleted.",
         });
-        router.refresh();
+        fetchSales();
       } catch (error) {
         console.error("Error deleting sale:", error);
         toast({
@@ -305,6 +322,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           updatedSale.isPaid ? "paid" : "unpaid"
         }.`,
       });
+      fetchSales();
     } catch (error) {
       console.error("Error updating paid status:", error);
       toast({
@@ -477,8 +495,6 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
               setFilterPaid(value as "all" | "paid" | "unpaid")
             }
           >
-            {" "}
-            {/* Updated line */}
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter by payment status" />
             </SelectTrigger>
