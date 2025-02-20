@@ -53,11 +53,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { customerName, tableNumber, items, isPaid } = await request.json();
+    const { customerName, tableNumber, space, items, isPaid } =
+      await request.json();
     const sale = await prisma.sale.create({
       data: {
         customerName,
         tableNumber,
+        space,
         isPaid: isPaid || false,
         userId: session.user.id,
         total: items.reduce(

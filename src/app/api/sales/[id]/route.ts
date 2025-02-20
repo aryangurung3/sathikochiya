@@ -6,13 +6,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { customerName, tableNumber, items } = await request.json();
+    const { customerName, tableNumber, space, items } = await request.json();
     const id = (await params).id;
     const updatedSale = await prisma.sale.update({
       where: { id: id },
       data: {
         customerName,
         tableNumber,
+        space,
         total: items.reduce(
           (
             sum: number,

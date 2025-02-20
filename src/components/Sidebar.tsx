@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Coffee, DollarSign, LogOut, BarChart } from "lucide-react";
+import { Coffee, DollarSign, LogOut, BarChart, Receipt } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function Sidebar() {
@@ -13,7 +13,7 @@ export function Sidebar() {
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col h-full">
-      <h2 className="text-xl font-semibold mb-4">Sathi ko Chiya</h2>
+      <h2 className="text-xl font-semibold mb-4">Chiya Cafe</h2>
       <nav className="mb-4">
         <Link href="/dashboard">
           <Button
@@ -30,18 +30,36 @@ export function Sidebar() {
             className="w-full justify-start mb-2"
           >
             <Coffee className="mr-2 h-4 w-4" />
-            Menu Items
+            Menu
           </Button>
         </Link>
         <Link href="/">
           <Button
             variant={pathname === "/" ? "default" : "ghost"}
-            className="w-full justify-start"
+            className="w-full justify-start mb-2"
           >
             <DollarSign className="mr-2 h-4 w-4" />
             Sales
           </Button>
         </Link>
+        <Link href="/expenses">
+          <Button
+            variant={pathname === "/expenses" ? "default" : "ghost"}
+            className="w-full justify-start mb-2"
+          >
+            <Receipt className="mr-2 h-4 w-4" />
+            Expenses
+          </Button>
+        </Link>
+        {/* <Link href="/change-details">
+          <Button
+            variant={pathname === "/change-details" ? "default" : "ghost"}
+            className="w-full justify-start"
+          >
+            <UserCog className="mr-2 h-4 w-4" />
+            Change Details
+          </Button>
+        </Link> */}
       </nav>
       <Separator className="my-4" />
       <div className="mt-auto">

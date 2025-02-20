@@ -53,6 +53,7 @@ type Sale = {
   id: string;
   customerName: string | null;
   tableNumber: string;
+  space: string;
   items: SaleItem[];
   total: number;
   createdAt: Date | string;
@@ -65,6 +66,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   const [sales, setSales] = useState<Sale[]>(initialSales);
   const [customerName, setCustomerName] = useState("");
   const [tableNumber, setTableNumber] = useState("");
+  const [space, setSpace] = useState("");
   const [currentSaleItems, setCurrentSaleItems] = useState<SaleItem[]>([]);
   const [selectedMenuItem, setSelectedMenuItem] = useState<string>("");
   const [quantity, setQuantity] = useState("");
@@ -171,6 +173,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           body: JSON.stringify({
             customerName,
             tableNumber,
+            space,
             items: currentSaleItems,
             isPaid: false,
           }),
@@ -213,6 +216,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
     setEditingSale(sale);
     setCustomerName(sale.customerName || "");
     setTableNumber(sale.tableNumber);
+    setSpace(sale.space);
     setCurrentSaleItems(sale.items);
   };
 
@@ -231,6 +235,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           body: JSON.stringify({
             customerName,
             tableNumber,
+            space,
             items: currentSaleItems,
           }),
         });
@@ -246,6 +251,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
         setEditingSale(null);
         setCustomerName("");
         setTableNumber("");
+        setSpace("");
         setCurrentSaleItems([]);
         toast({
           title: "Sale updated",
@@ -374,6 +380,20 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
             />
           </div>
           <div>
+            <Label htmlFor="space">Space</Label>
+            <Select value={space} onValueChange={setSpace} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select space" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Inside">Inside</SelectItem>
+                <SelectItem value="Outside">Outside</SelectItem>
+                <SelectItem value="Group">Group</SelectItem>
+                <SelectItem value="Stage">Stage</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label htmlFor="customerName">Customer Name (Optional)</Label>
             <Input
               id="customerName"
@@ -443,7 +463,21 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
             </div>
           )}
           <Button
-            onClick={editingSale ? updateSale : addSale}
+            onClick={async () => {
+              if (!space) {
+                toast({
+                  title: "Error",
+                  description: "Space selection is required.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              if (editingSale) {
+                await updateSale();
+              } else {
+                await addSale();
+              }
+            }}
             className="w-full"
             disabled={isLoading}
           >
@@ -465,6 +499,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
                 setEditingSale(null);
                 setCustomerName("");
                 setTableNumber("");
+                setSpace("");
                 setCurrentSaleItems([]);
               }}
               className="w-full"
@@ -509,6 +544,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Table</TableHead>
+              <TableHead>Space</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Total</TableHead>
@@ -521,6 +557,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
             {currentItems.map((sale) => (
               <TableRow key={sale.id}>
                 <TableCell>{sale.tableNumber}</TableCell>
+                <TableCell>{sale.space}</TableCell>
                 <TableCell>{sale.customerName || "N/A"}</TableCell>
                 <TableCell>
                   {sale.items.map((item, index) => (

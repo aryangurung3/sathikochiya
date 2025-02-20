@@ -18,6 +18,7 @@ model User {
   updatedAt DateTime  @updatedAt
   sales     Sale[]
   sessions  Session[]
+  expenses  Expense[]
 }
 
 model Session {
@@ -33,6 +34,7 @@ model Sale {
   id           String     @id @default(cuid())
   customerName String?
   tableNumber  String
+  space        String
   total        Float
   isPaid       Boolean    @default(false)
   createdAt    DateTime   @default(now())
@@ -40,6 +42,19 @@ model Sale {
   items        SaleItem[]
   user         User       @relation(fields: [userId], references: [id])
   userId       String
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  name      String
+  quantity  Int
+  price     Float
+  remarks   String?
+  total     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
 }
 
 model SaleItem {
