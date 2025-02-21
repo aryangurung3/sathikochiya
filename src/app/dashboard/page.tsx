@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AuthenticatedLayout } from "@/components/AuthenticatedLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 type Sale = {
   id: string;
   customerName: string;
-  tableNumber: string; // Added tableNumber field
+  tableNumber: string;
+  space: string;
   total: number;
   createdAt: string;
 };
@@ -41,56 +42,76 @@ type SaleItem = {
   quantity: number;
 };
 
+type Expense = {
+  id: string;
+  total: number;
+};
+
 export default function DashboardPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>();
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let salesUrl = "/api/sales";
       let saleItemsUrl = "/api/sale-items";
+      let expensesUrl = "/api/expenses";
 
       if (dateRange?.from && dateRange?.to) {
         const fromParam = dateRange.from.toISOString();
         const toParam = dateRange.to.toISOString();
         salesUrl += `?from=${fromParam}&to=${toParam}`;
         saleItemsUrl += `?from=${fromParam}&to=${toParam}`;
+        expensesUrl += `?from=${fromParam}&to=${toParam}`;
       }
 
-      const [salesResponse, menuItemsResponse, saleItemsResponse] =
-        await Promise.all([
-          fetch(salesUrl),
-          fetch("/api/menu-items"),
-          fetch(saleItemsUrl),
-        ]);
-
-      const [salesData, menuItemsData, saleItemsData] = await Promise.all([
-        salesResponse.json(),
-        menuItemsResponse.json(),
-        saleItemsResponse.json(),
+      const [
+        salesResponse,
+        menuItemsResponse,
+        saleItemsResponse,
+        expensesResponse,
+      ] = await Promise.all([
+        fetch(salesUrl),
+        fetch("/api/menu-items"),
+        fetch(saleItemsUrl),
+        fetch(expensesUrl),
       ]);
+
+      const [salesData, menuItemsData, saleItemsData, expensesData] =
+        await Promise.all([
+          salesResponse.json(),
+          menuItemsResponse.json(),
+          saleItemsResponse.json(),
+          expensesResponse.json(),
+        ]);
 
       setSales(salesData);
       setMenuItems(menuItemsData);
       setSaleItems(saleItemsData);
+      setExpenses(expensesData);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange]);
 
   useEffect(() => {
     fetchData();
-  }, [dateRange]); //Fixed useEffect dependency
+  }, [fetchData]);
 
   const totalSales = sales.length;
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
+  const totalExpenses = expenses.reduce(
+    (sum, expense) => sum + expense.total,
+    0
+  );
 
   const pieChartData = menuItems.map((item) => {
     const itemSales = saleItems.filter(
@@ -125,7 +146,7 @@ export default function DashboardPage() {
   const filteredSales = sales
     .filter(
       (sale) =>
-        sale.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sale.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         sale.tableNumber.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .slice(0, 10);
@@ -134,7 +155,7 @@ export default function DashboardPage() {
     <AuthenticatedLayout>
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>Total Sales</CardTitle>
@@ -157,6 +178,20 @@ export default function DashboardPage() {
               ) : (
                 <p className="text-4xl font-bold">
                   Rs. {totalRevenue.toFixed(2)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Expenses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-10 w-32" />
+              ) : (
+                <p className="text-4xl font-bold">
+                  Rs. {totalExpenses.toFixed(2)}
                 </p>
               )}
             </CardContent>
@@ -215,6 +250,7 @@ export default function DashboardPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Table</TableHead>
+                    <TableHead>Space</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Total</TableHead>
@@ -224,6 +260,9 @@ export default function DashboardPage() {
                   {loading
                     ? Array.from({ length: 10 }).map((_, index) => (
                         <TableRow key={index}>
+                          <TableCell>
+                            <Skeleton className="h-6 w-20" />
+                          </TableCell>
                           <TableCell>
                             <Skeleton className="h-6 w-20" />
                           </TableCell>
@@ -241,6 +280,7 @@ export default function DashboardPage() {
                     : filteredSales.map((sale) => (
                         <TableRow key={sale.id}>
                           <TableCell>{sale.tableNumber}</TableCell>
+                          <TableCell>{sale.space}</TableCell>
                           <TableCell>{sale.customerName}</TableCell>
                           <TableCell>
                             {new Date(sale.createdAt).toLocaleDateString()}
