@@ -29,12 +29,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea"; // Ensure this path is correct
+import { Textarea } from "@/components/ui/textarea";
 
 type Expense = {
   id: string;
   name: string;
-  quantity: number;
+  quantity: number; // This will now support decimals
   price: number;
   remarks?: string | null;
   total: number;
@@ -90,7 +90,7 @@ export function ExpenseManagement({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name,
-            quantity: Number(quantity),
+            quantity: Number.parseFloat(quantity), // Changed from Number to parseFloat
             price: Number(price),
             remarks,
           }),
@@ -130,14 +130,6 @@ export function ExpenseManagement({
     }
   };
 
-  const startEditExpense = (expense: Expense) => {
-    setEditingExpense(expense);
-    setName(expense.name);
-    setQuantity(expense.quantity.toString());
-    setPrice(expense.price.toString());
-    setRemarks(expense.remarks || "");
-  };
-
   const updateExpense = async () => {
     if (editingExpense && name && quantity && price && !isLoading) {
       setIsLoading(true);
@@ -147,7 +139,7 @@ export function ExpenseManagement({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name,
-            quantity: Number(quantity),
+            quantity: Number.parseFloat(quantity), // Changed from Number to parseFloat
             price: Number(price),
             remarks,
           }),
@@ -235,6 +227,14 @@ export function ExpenseManagement({
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
+  const startEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setName(expense.name);
+    setQuantity(String(expense.quantity));
+    setPrice(String(expense.price));
+    setRemarks(expense.remarks || "");
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow">
@@ -258,6 +258,8 @@ export function ExpenseManagement({
               <Input
                 id="quantity"
                 type="number"
+                step="0.01" // Allow decimal values
+                min="0"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="Enter quantity"
@@ -269,6 +271,8 @@ export function ExpenseManagement({
               <Input
                 id="price"
                 type="number"
+                step="0.01"
+                min="0"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="Enter price"
@@ -281,9 +285,7 @@ export function ExpenseManagement({
             <Textarea
               id="remarks"
               value={remarks}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                setRemarks(e.target.value)
-              }
+              onChange={(e) => setRemarks(e.target.value)}
               placeholder="Enter remarks"
               className="resize-none"
             />
@@ -358,7 +360,7 @@ export function ExpenseManagement({
             {currentItems.map((expense) => (
               <TableRow key={expense.id}>
                 <TableCell>{expense.name}</TableCell>
-                <TableCell>{expense.quantity}</TableCell>
+                <TableCell>{expense.quantity.toFixed(2)}</TableCell>
                 <TableCell>Rs. {expense.price.toFixed(2)}</TableCell>
                 <TableCell>Rs. {expense.total.toFixed(2)}</TableCell>
                 <TableCell>{expense.remarks || "N/A"}</TableCell>

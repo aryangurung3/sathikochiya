@@ -45,6 +45,7 @@ type SaleItem = {
 type Expense = {
   id: string;
   total: number;
+  createdAt: string; // Add createdAt field
 };
 
 export default function DashboardPage() {
@@ -108,10 +109,13 @@ export default function DashboardPage() {
 
   const totalSales = sales.length;
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
-  const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + expense.total,
-    0
-  );
+  const totalExpenses = expenses
+    .filter((expense) => {
+      if (!dateRange?.from || !dateRange?.to) return true;
+      const expenseDate = new Date(expense.createdAt);
+      return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
+    })
+    .reduce((sum, expense) => sum + expense.total, 0);
 
   const pieChartData = menuItems.map((item) => {
     const itemSales = saleItems.filter(
