@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AuthenticatedLayout } from "@/components/AuthenticatedLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   DatePickerWithRange,
   type DateRange,
@@ -18,8 +19,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search } from "lucide-react";
+import { Download, Loader2, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { generatePDF } from "@/lib/generatePDF";
+import { useToast } from "@/hooks/use-toast";
 
 type Sale = {
   id: string;
@@ -56,6 +59,10 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>();
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const { toast } = useToast();
+  const pieChartRef = useRef<HTMLDivElement>(null);
+  const lineChartRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -155,10 +162,64 @@ export default function DashboardPage() {
     )
     .slice(0, 10);
 
+  const handleDownloadReport = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const pdf = await generatePDF({
+        totalSales,
+        totalRevenue,
+        totalExpenses,
+        dateRange: {
+          from: dateRange?.from,
+          to: dateRange?.to,
+        },
+        pieChartElement: pieChartRef.current,
+        lineChartElement: lineChartRef.current,
+        recentSales: filteredSales,
+      });
+
+      // Generate filename with current date
+      const dateStr = new Date().toISOString().split("T")[0];
+      pdf.save(`chiya-cafe-report-${dateStr}.pdf`);
+
+      toast({
+        title: "Report Generated",
+        description: "Your report has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   return (
     <AuthenticatedLayout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <Button
+            onClick={handleDownloadReport}
+            disabled={isGeneratingPDF || loading}
+          >
+            {isGeneratingPDF ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Report...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Download Report
+              </>
+            )}
+          </Button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader>
@@ -215,11 +276,13 @@ export default function DashboardPage() {
               <CardTitle>Sales by Menu Item</CardTitle>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <Skeleton className="h-60 w-full" />
-              ) : (
-                <PieChart data={pieChartData} />
-              )}
+              <div ref={pieChartRef}>
+                {loading ? (
+                  <Skeleton className="h-60 w-full" />
+                ) : (
+                  <PieChart data={pieChartData} />
+                )}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -227,11 +290,13 @@ export default function DashboardPage() {
               <CardTitle>Sales Over Time</CardTitle>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <Skeleton className="h-60 w-full" />
-              ) : (
-                <LineChart data={lineChartData} />
-              )}
+              <div ref={lineChartRef}>
+                {loading ? (
+                  <Skeleton className="h-60 w-full" />
+                ) : (
+                  <LineChart data={lineChartData} />
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
