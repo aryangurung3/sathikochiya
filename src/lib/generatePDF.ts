@@ -27,7 +27,7 @@ export async function generatePDF(data: ReportData) {
 
   // Add header
   pdf.setFontSize(20);
-  pdf.text("Chiya Cafe - Sales Report", pageWidth / 2, yPos, {
+  pdf.text("Sathi ko Chiya - Sales Report", pageWidth / 2, yPos, {
     align: "center",
   });
   yPos += 15;
