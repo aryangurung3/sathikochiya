@@ -449,9 +449,10 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
                 <SelectValue placeholder="Select space" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="inside">Inside</SelectItem>
-                <SelectItem value="outside">Outside</SelectItem>
-                <SelectItem value="group-stage">Group Stage</SelectItem>
+                <SelectItem value="Inside">Inside</SelectItem>
+                <SelectItem value="Outside">Outside</SelectItem>
+                <SelectItem value="Group">Group</SelectItem>
+                <SelectItem value="Stage">Stage</SelectItem>
               </SelectContent>
             </Select>
           </div>
