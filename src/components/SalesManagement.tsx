@@ -27,6 +27,7 @@ import {
   Search,
   PlusCircle,
   Loader2,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -36,6 +37,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
+import * as XLSX from "xlsx";
 
 type MenuItem = {
   id: string;
@@ -77,11 +81,16 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPaid, setFilterPaid] = useState<string>("all");
   const { toast } = useToast();
+  const [dateRange, setDateRange] = useState<DateRange>();
 
   useEffect(() => {
     fetchMenuItems();
     fetchSales();
   }, []);
+
+  useEffect(() => {
+    fetchSales();
+  }, [dateRange?.from, dateRange?.to]);
 
   const fetchMenuItems = async () => {
     try {
@@ -103,7 +112,15 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
 
   const fetchSales = async () => {
     try {
-      const response = await fetch("/api/sales");
+      let url = "/api/sales";
+      if (dateRange?.from && dateRange?.to) {
+        const params = new URLSearchParams({
+          from: dateRange.from.toISOString(),
+          to: dateRange.to.toISOString(),
+        });
+        url += `?${params.toString()}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch sales");
       }
@@ -355,9 +372,55 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
     });
   }, [sales, searchTerm, filterPaid]);
 
+  const downloadExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredSales.map((sale) => ({
+        "Table Number": sale.tableNumber,
+        Space: sale.space,
+        Customer: sale.customerName || "N/A",
+        Items: sale.items
+          .map((item) => `${item.menuItem.title} x${item.quantity}`)
+          .join(", "),
+        Total: `Rs. ${sale.total.toFixed(2)}`,
+        Date: new Date(sale.createdAt).toLocaleString(),
+        Status: sale.isPaid ? "Paid" : "Unpaid",
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sales");
+
+      // Generate filename with date range if present
+      let filename = "sales";
+      if (dateRange?.from && dateRange?.to) {
+        filename += `_${dateRange.from.toISOString().split("T")[0]}_to_${
+          dateRange.to.toISOString().split("T")[0]
+        }`;
+      }
+      filename += ".xlsx";
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Success",
+        description: "Sales data has been downloaded.",
+      });
+    } catch (error) {
+      console.error("Error downloading excel:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download sales data.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredSales.slice(indexOfFirstItem, indexOfLastItem);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
@@ -386,10 +449,9 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
                 <SelectValue placeholder="Select space" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Inside">Inside</SelectItem>
-                <SelectItem value="Outside">Outside</SelectItem>
-                <SelectItem value="Group">Group</SelectItem>
-                <SelectItem value="Stage">Stage</SelectItem>
+                <SelectItem value="inside">Inside</SelectItem>
+                <SelectItem value="outside">Outside</SelectItem>
+                <SelectItem value="group-stage">Group Stage</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -514,31 +576,54 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Sales List</h2>
         <div className="flex justify-between items-center mb-4">
-          <div className="relative w-64">
-            <Input
-              type="text"
-              placeholder="Search by customer or table"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
+              <Input
+                type="text"
+                placeholder="Search by customer or table"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+              {dateRange && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDateRange(undefined);
+                    setCurrentPage(1); // Reset to first page when clearing date filter
+                  }}
+                >
+                  Reset Date
+                </Button>
+              )}
+            </div>
           </div>
-          <Select
-            value={filterPaid}
-            onValueChange={(value: string) =>
-              setFilterPaid(value as "all" | "paid" | "unpaid")
-            }
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by payment status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-4">
+            <Select
+              value={filterPaid}
+              onValueChange={(value: string) =>
+                setFilterPaid(value as "all" | "paid" | "unpaid")
+              }
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by payment status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={downloadExcel}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Excel
+            </Button>
+          </div>
         </div>
         <Table>
           <TableHeader>

@@ -20,6 +20,7 @@ import {
   Search,
   PlusCircle,
   Loader2,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -30,11 +31,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
+import * as XLSX from "xlsx";
 
 type Expense = {
   id: string;
   name: string;
-  quantity: number; // This will now support decimals
+  quantity: number;
   price: number;
   remarks?: string | null;
   total: number;
@@ -57,6 +61,7 @@ export function ExpenseManagement({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -90,7 +95,7 @@ export function ExpenseManagement({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name,
-            quantity: Number.parseFloat(quantity), // Changed from Number to parseFloat
+            quantity: Number.parseFloat(quantity),
             price: Number(price),
             remarks,
           }),
@@ -139,7 +144,7 @@ export function ExpenseManagement({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name,
-            quantity: Number.parseFloat(quantity), // Changed from Number to parseFloat
+            quantity: Number.parseFloat(quantity),
             price: Number(price),
             remarks,
           }),
@@ -212,10 +217,23 @@ export function ExpenseManagement({
   };
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) =>
-      expense.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [expenses, searchTerm]);
+    return expenses.filter((expense) => {
+      // First, apply search filter
+      const matchesSearch = expense.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+      // Then, apply date range filter if it exists
+      if (dateRange?.from && dateRange?.to) {
+        const expenseDate = new Date(expense.createdAt);
+        const isWithinDateRange =
+          expenseDate >= dateRange.from && expenseDate <= dateRange.to;
+        return matchesSearch && isWithinDateRange;
+      }
+
+      return matchesSearch;
+    });
+  }, [expenses, searchTerm, dateRange]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -233,6 +251,49 @@ export function ExpenseManagement({
     setQuantity(String(expense.quantity));
     setPrice(String(expense.price));
     setRemarks(expense.remarks || "");
+  };
+
+  const downloadExcel = () => {
+    try {
+      // Prepare data for export - use filteredExpenses to include date range and search filters
+      const exportData = filteredExpenses.map((expense) => ({
+        Name: expense.name,
+        Quantity: expense.quantity,
+        "Price (Rs.)": expense.price.toFixed(2),
+        "Total (Rs.)": expense.total.toFixed(2),
+        Remarks: expense.remarks || "N/A",
+        Date: new Date(expense.createdAt).toLocaleString(),
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+
+      // Generate filename with date range if present
+      let filename = "expenses";
+      if (dateRange?.from && dateRange?.to) {
+        filename += `_${dateRange.from.toISOString().split("T")[0]}_to_${
+          dateRange.to.toISOString().split("T")[0]
+        }`;
+      }
+      filename += ".xlsx";
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Success",
+        description: "Expenses data has been downloaded.",
+      });
+    } catch (error) {
+      console.error("Error downloading excel:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download expenses data.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -258,7 +319,7 @@ export function ExpenseManagement({
               <Input
                 id="quantity"
                 type="number"
-                step="0.01" // Allow decimal values
+                step="0.01"
                 min="0"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
@@ -333,16 +394,37 @@ export function ExpenseManagement({
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Expenses List</h2>
         <div className="flex justify-between items-center mb-4">
-          <div className="relative w-64">
-            <Input
-              type="text"
-              placeholder="Search by expense name"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
+              <Input
+                type="text"
+                placeholder="Search by expense name"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+              {dateRange && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDateRange(undefined);
+                    setCurrentPage(1); // Reset to first page when clearing date filter
+                  }}
+                >
+                  Reset Date
+                </Button>
+              )}
+            </div>
           </div>
+          <Button variant="outline" onClick={downloadExcel}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Excel
+          </Button>
         </div>
         <Table>
           <TableHeader>
