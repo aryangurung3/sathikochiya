@@ -28,6 +28,7 @@ import {
   PlusCircle,
   Loader2,
   Download,
+  CalendarIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -38,6 +39,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import * as XLSX from "xlsx";
 
@@ -82,6 +90,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
   const [filterPaid, setFilterPaid] = useState<string>("all");
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRange>();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     fetchMenuItems();
@@ -184,6 +193,18 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
     if (tableNumber && currentSaleItems.length > 0 && !isLoading) {
       setIsLoading(true);
       try {
+        const now = new Date();
+        const saleDate = selectedDate
+          ? new Date(
+              selectedDate.getFullYear(),
+              selectedDate.getMonth(),
+              selectedDate.getDate(),
+              now.getHours(),
+              now.getMinutes(),
+              now.getSeconds()
+            )
+          : now;
+
         const response = await fetch("/api/sales", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -193,6 +214,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
             space,
             items: currentSaleItems,
             isPaid: false,
+            createdAt: saleDate.toISOString(),
           }),
         });
 
@@ -204,7 +226,9 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
         setSales([newSale, ...sales]);
         setCustomerName("");
         setTableNumber("");
+        setSpace("");
         setCurrentSaleItems([]);
+        setSelectedDate(undefined);
         toast({
           title: "Sale added",
           description: `A new sale for table ${newSale.tableNumber} has been added.`,
@@ -374,7 +398,6 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
 
   const downloadExcel = () => {
     try {
-      // Prepare data for export
       const exportData = filteredSales.map((sale) => ({
         "Table Number": sale.tableNumber,
         Space: sale.space,
@@ -387,12 +410,10 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
         Status: sale.isPaid ? "Paid" : "Unpaid",
       }));
 
-      // Create worksheet
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Sales");
 
-      // Generate filename with date range if present
       let filename = "sales";
       if (dateRange?.from && dateRange?.to) {
         filename += `_${dateRange.from.toISOString().split("T")[0]}_to_${
@@ -401,7 +422,6 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
       }
       filename += ".xlsx";
 
-      // Download file
       XLSX.writeFile(wb, filename);
 
       toast({
@@ -418,7 +438,6 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
     }
   };
 
-  // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredSales.slice(indexOfFirstItem, indexOfLastItem);
@@ -455,6 +474,32 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
                 <SelectItem value="stage">Stage</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="saleDate">Sale Date (Optional)</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={`w-full justify-start text-left font-normal ${
+                    !selectedDate && "text-muted-foreground"
+                  }`}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate
+                    ? format(selectedDate, "PPP")
+                    : "Select date (defaults to today)"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <Label htmlFor="customerName">Customer Name (Optional)</Label>
@@ -596,7 +641,7 @@ export function SalesManagement({ initialSales }: { initialSales: Sale[] }) {
                   size="sm"
                   onClick={() => {
                     setDateRange(undefined);
-                    setCurrentPage(1); // Reset to first page when clearing date filter
+                    setCurrentPage(1);
                   }}
                 >
                   Reset Date
