@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, quantity, price, remarks } = await request.json();
+    const { name, quantity, price, remarks, createdAt } = await request.json();
     const expense = await prisma.expense.create({
       data: {
         name,
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         price: Number(price),
         remarks,
         total: Number(price) * Number(quantity),
+        createdAt: createdAt ? new Date(createdAt) : new Date(), // Use provided date or current date
         userId: session.user.id,
       },
     });

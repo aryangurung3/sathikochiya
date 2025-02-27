@@ -11,6 +11,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Sathi ko Chiya Management",
   description: "Manage your Chiya Cafe sales and menu",
+  icons: "/favicon.ico",
 };
 
 export default function RootLayout({

@@ -34,6 +34,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import * as XLSX from "xlsx";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
 type Expense = {
   id: string;
@@ -63,6 +71,7 @@ export function ExpenseManagement({
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>();
   const { toast } = useToast();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     fetchExpenses();
@@ -90,6 +99,18 @@ export function ExpenseManagement({
     if (name && quantity && price && !isLoading) {
       setIsLoading(true);
       try {
+        const now = new Date();
+        const expenseDate = selectedDate
+          ? new Date(
+              selectedDate.getFullYear(),
+              selectedDate.getMonth(),
+              selectedDate.getDate(),
+              now.getHours(),
+              now.getMinutes(),
+              now.getSeconds()
+            )
+          : now;
+
         const response = await fetch("/api/expenses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,6 +119,7 @@ export function ExpenseManagement({
             quantity: Number.parseFloat(quantity),
             price: Number(price),
             remarks,
+            createdAt: expenseDate.toISOString(),
           }),
         });
 
@@ -111,6 +133,7 @@ export function ExpenseManagement({
         setQuantity("");
         setPrice("");
         setRemarks("");
+        setSelectedDate(undefined); // Reset the date picker
         toast({
           title: "Expense added",
           description: `A new expense "${newExpense.name}" has been added.`,
@@ -296,6 +319,35 @@ export function ExpenseManagement({
     }
   };
 
+  const datePickerSection = (
+    <div>
+      <Label htmlFor="expenseDate">Expense Date (Optional)</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant={"outline"}
+            className={`w-full justify-start text-left font-normal ${
+              !selectedDate && "text-muted-foreground"
+            }`}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {selectedDate
+              ? format(selectedDate, "PPP")
+              : "Select date (defaults to today)"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow">
@@ -313,6 +365,7 @@ export function ExpenseManagement({
               required
             />
           </div>
+          {datePickerSection}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="quantity">Quantity</Label>
